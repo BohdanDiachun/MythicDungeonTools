@@ -14,7 +14,6 @@ local sizey = 555
 local mythicColor = "|cFFFFFFFF"
 MDT.BackdropColor = { 0.058823399245739, 0.058823399245739, 0.058823399245739, 0.9}
 
-local Dialog = LibStub("LibDialog-1.0")
 local AceGUI = LibStub("AceGUI-3.0")
 local db
 local icon = LibStub("LibDBIcon-1.0")
@@ -88,8 +87,8 @@ local initFrames
 local defaultSavedVars = {
 	global = {
         toolbarExpanded = true,
-        currentSeason = 4,
-		currentExpansion = 2,
+        currentSeason = 5,
+		currentExpansion = 3,
         scale = 1,
         enemyForcesFormat = 2,
         enemyStyle = 1,
@@ -144,44 +143,11 @@ do
 
     function MDT.ADDON_LOADED(self, addon)
         if addon == "MythicDungeonTools" then
-
-            do
-                --Mdt migration 
-                if MethodDungeonToolsDB and not MethodDungeonToolsDB.dbMigrated then
-                    MythicDungeonToolsDB = CopyTable(MethodDungeonToolsDB)
-                    MethodDungeonToolsDB.dbMigrated = true
-                end
-
-                MethodDungeonTools = {};
-                MethodDungeonTools.GetEnemyForces = function(uselessSelf,npcID)
-                    return MDT:GetEnemyForces(npcID);
-                end
-            end
-
 			db = LibStub("AceDB-3.0"):New("MythicDungeonToolsDB", defaultSavedVars).global
 			icon:Register("MythicDungeonTools", LDB, db.minimap)
 			if not db.minimap.hide then
 				icon:Show("MythicDungeonTools")
 			end
-			Dialog:Register("MDTPosCopyDialog", {
-				text = "Pos Copy",
-				width = 500,
-				editboxes = {
-					{ width = 484,
-					  on_escape_pressed = function(self, data) self:GetParent():Hide() end,
-					},
-				},
-				on_show = function(self, data)
-					self.editboxes[1]:SetText(data.pos)
-					self.editboxes[1]:HighlightText()
-					self.editboxes[1]:SetFocus()
-				end,
-				buttons = {
-					{ text = CLOSE, },
-				},
-				show_while_dead = true,
-				hide_on_escape = true,
-			})
 
             if db.dataCollectionActive then MDT.DataCollection:Init() end
             --fix db corruption
@@ -231,7 +197,12 @@ do
         end
     end
     function MDT.PLAYER_ENTERING_WORLD(self, addon)
-        MDT:GetCurrentAffixWeek()
+        --dirty hack to initialize Blizzard_ChallengesUI properly
+        C_Timer.After(1,function()
+            PVEFrame_ToggleFrame("ChallengesFrame")
+            PVEFrame_ToggleFrame("GroupFinderFrame")
+            PVEFrame_ToggleFrame()
+        end)
         self:UnregisterEvent("PLAYER_ENTERING_WORLD")
     end
 
@@ -243,18 +214,18 @@ MDT.dungeonTotalCount = {}
 MDT.scaleMultiplier = {}
 
 local affixWeeks = { --affixID as used in C_ChallengeMode.GetAffixInfo(affixID)
-    [1] = {[1]=5,[2]=3,[3]=9,[4]=120},
-    [2] = {[1]=7,[2]=2,[3]=10,[4]=120},
-    [3] = {[1]=11,[2]=4,[3]=9,[4]=120},
-    [4] = {[1]=8,[2]=14,[3]=10,[4]=120},
-    [5] = {[1]=7,[2]=13,[3]=9,[4]=120},
-    [6] = {[1]=11,[2]=3,[3]=10,[4]=120},
-    [7] = {[1]=6,[2]=4,[3]=9,[4]=120},
-    [8] = {[1]=5,[2]=14,[3]=10,[4]=120},
-    [9] = {[1]=11,[2]=2,[3]=9,[4]=120},
-    [10] = {[1]=7,[2]=12,[3]=10,[4]=120},
-    [11] = {[1]=6,[2]=13,[3]=9,[4]=120},
-    [12] = {[1]=8,[2]=12,[3]=10,[4]=120},
+    [1] = {[1]=5,[2]=3,[3]=9,[4]=121},
+    [2] = {[1]=122,[2]=13,[3]=10,[4]=121},
+    [3] = {[1]=11,[2]=4,[3]=9,[4]=121},
+    [4] = {[1]=8,[2]=14,[3]=10,[4]=121},
+    [5] = {[1]=7,[2]=13,[3]=9,[4]=121},
+    [6] = {[1]=11,[2]=3,[3]=10,[4]=121},
+    [7] = {[1]=6,[2]=4,[3]=9,[4]=121},
+    [8] = {[1]=5,[2]=14,[3]=10,[4]=121},
+    [9] = {[1]=11,[2]=2,[3]=9,[4]=121},
+    [10] = {[1]=7,[2]=12,[3]=10,[4]=121},
+    [11] = {[1]=6,[2]=13,[3]=9,[4]=121},
+    [12] = {[1]=8,[2]=12,[3]=10,[4]=121},
 }
 
 local dungeonList = {
@@ -1571,11 +1542,6 @@ function MDT:MakeSidePanel(frame)
                 ret = ret..CreateTextureMarkup(filedataid, 64, 64, 20, 20, 0.1, 0.9, 0.1, 0.9,0,0).."  "
             end
         end
-        local rotation = ""
-        if longText then rotation = rotation.." ("..L["Rotation"] end
-        rotation = rotation..((week-1)%4>=2 and " B" or " A")
-        if longText then rotation = rotation..")" end
-        ret = ret..rotation
         return ret
     end
     frame.sidePanel.affixDropdown = AceGUI:Create("Dropdown")
@@ -4770,6 +4736,10 @@ function MDT:PrintCurrentAffixes()
         [117] =L["Reaping"],
         [119] =L["Beguiling"],
         [120] =L["Awakened"],
+        [121] =L["Prideful"],
+        [122] =L["Inspiring"],
+        [123] =L["Spiteful"],
+        [124] =L["Storming"],
     }
     local affixIds = C_MythicPlus.GetCurrentAffixes()
     for idx,data in ipairs(affixIds) do
@@ -4965,6 +4935,10 @@ function initFrames()
     main_frame.mainFrametex:SetAllPoints()
     main_frame.mainFrametex:SetDrawLayer(canvasDrawLayer, -5)
     main_frame.mainFrametex:SetColorTexture(unpack(MDT.BackdropColor))
+
+    if not db.MDI.enabled then
+        db.currentSeason = defaultSavedVars.global.currentSeason
+    end
 
     local version = GetAddOnMetadata(AddonName, "Version"):gsub("%.","")
     db.version = tonumber(version)
